@@ -4,29 +4,36 @@ use warnings;
 use List::Util qw/first/;
 use File::Path qw/make_path/;
 use File::Find;
-use IO::Dir;
+use File::Spec;
 
-# constructor
 sub new {
   my($kind, $root, $to, $from) = @_;
+  $root = File::Spec->rel2abs($root);
+  die "ID to directory function must be a code reference.\n"
+    unless (ref $to eq 'CODE');
+  die "Directory to ID function must be a code reference.\n"
+    unless (ref $from eq 'CODE');
+  die "Could not make root directory!\n"
+    unless (make_path($root));
+  die "Root must be a directory.\n"
+    unless (-d $root);
   my %self = (root => $root, to => $to, from => $from);
-  die "root" unless (make_path($root));
-  die "to" unless (ref $to eq 'CODE');
-  die "from" unless (ref $from eq 'CODE');
   bless \%self, $kind;
   return \%self;
 }
 
 sub to {
   my($self, $id) = @_;
-  my $path = $self->{to}->($id);
-  return $path;
+  my @toks = $self->{to}->($id);
+  return join '/', @toks;
 }
 
 sub from {
   my ($self, $path) = @_;
-  my $id = $self->{from}->(split '/', $path);
-  return $id;
+  my $root = $self->root;
+  $path =~ s/^$root\///;
+  my @toks = split '/', $path;
+  return $self->{from}->(@toks);
 }
 
 sub root {
@@ -37,37 +44,50 @@ sub root {
 sub path {
   my($self, $id) = @_;
   my $path = $self->to($id);
-  return $path ? join '/', $self->{root}, $path : undef;
-}
-
-sub add {
-  my ($self, $id) = @_;
-  die "ID required" unless($id);
-  my $path = $self->path($id);
-  return unless (make_path($path));
-  return $self->get("$id");
+  return unless $path;
+  return join '/', $self->root, $path;
 }
 
 sub get {
   my ($self, $id) = @_;
-  die "ID required" unless($id);
+  return unless($id);
   my $path = $self->path($id);
   return unless (-d $path);
-  tie my %dir, 'IO::Dir', $path;
-  return \%dir;
+  return $path;
+}
+
+sub add {
+  my ($self, $id) = @_;
+  return unless($id);
+  my $path = $self->path($id);
+  return unless $path;
+  die sprintf "Could not make path %s.\n", $path
+    unless (-d $path or make_path($path));
+  return $path;
 }
 
 sub del {
   my ($self, $id) = @_;
   die "ID required" unless($id);
-  # delete the given directory from the tree
+  my $path = $self->path($id);
+  return unless (-d $path);
+  die sprintf "Could not remove path %s.\n", $path
+    unless remove_tree($path);
+  return $path;
 }
 
-sub list {
+sub all {
   my ($self) = @_;
-  # list all IDs in the tree
-  
-
+  my %seen;
+  my $grab = sub {
+    my $name = $File::Find::name;
+    return unless -d $name;
+    my $id = $self->from("$name");
+    return unless $id;
+    $seen{$id}++;
+  };
+  find($grab, $self->root);
+  return keys %seen;
 }
 
 1;
