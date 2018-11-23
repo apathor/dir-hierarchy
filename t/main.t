@@ -2,71 +2,44 @@
 
 use strict;
 use warnings;
-use v5.10;
 
-use Test::More; # tests => 13;
+use Test::More;
 use File::Temp qw/tempdir/;
 use File::Path qw/make_path remove_tree/;
 
-use lib qw(./lib ../lib); # FIXME
-
 use Dir::Hierarchy;
 
-# semantics
-my $it;
+my $it = "Dir::Hierarchy";
+my $this;
 
 # setup a temporary directory
 my $dir = tempdir();
 
 # instances
-my $hier = Dir::Hierarchy->new(
-  "$dir/fqdn",
-  sub { reverse split /\./, shift; },
-  sub { join '.', reverse splice @_, 0, 4; }
+my $triv = Dir::Hierarchy->new(
+  "$dir/basic",
+  sub { shift },
+  sub { shift }
  );
 
-$it = ref $hier;
+ok(ref $triv eq "Dir::Hierarchy", "A ::Hierarchy instance can be made.");
+ok($triv->root eq "$dir/basic", "$it has a root directory.");
+ok($triv->to("foo") eq "foo","$it maps a trivial ID to tokens.");
+ok($triv->from("bar") eq "bar", "$it maps path tokens to an ID.");
+ok($triv->full("qux") eq "$dir/basic/qux","$it maps an ID to a path.");
 
-ok($it eq "Dir::Hierarchy",
-   "A Dir::Hierarchy instance can be made.");
+my $id = "fizz";
+ok($this = $triv->add($id), "String entries can be added to $it instances.");
+ok(ref $this eq "Path::Tiny", "$it entries are added as Path::Tiny instances.");
+ok(-d $this, "$it added entries exist in the filesystem.");
+ok($this = $triv->get($id), "$it entries can be retreived.");
+ok(ref $this eq "Path::Tiny", "$it entries are retreived as Path::Tiny instances.");
+ok(-d $this, "$it retreived entries exist in the filesystem.");
+ok($triv->del($id) && ! -d $this, "$it entries can be deleted.");
 
-ok($hier->root eq "$dir/fqdn",
-   "$it has a root directory.");
-
-ok($hier->check("dirhier.test.thecompy.net"));
-
-ok($hier->to("that") eq "that",
-   "$it maps a trivial ID to a path.");
-
-ok($hier->to("www.this.net") eq "net/this/www",
-   "$it maps a typical ID to a path.");
-
-ok($hier->from("that") eq "that",
-   "$it maps a trivial path to an ID.");
-
-ok($hier->from("net/this/www") eq "www.this.net",
-   "$it maps a typical path to an ID.");
-
-ok($hier->path("www.this.net") eq "$dir/fqdn/net/this/www",
-   "$it generates a full path from an ID.");
-
-my @all = $hier->all();
-ok(@all);
-
-# entries
-my $new = $hier->add("bookmarks.thecompy.net");
-
-ok($new,
-   "Make an entry.");
-
-ok(! ref $new,
-   "Entries are a string.");
-
-ok(-d $new,
-   "Entries are directories.");
-
-ok(! defined $hier->add(undef),
-   "Some IDs are untranslatable.");
+$triv->add($_) for (qw/foo bar qux/);
+my @those = $triv->all();
+ok($triv->all(), "$it entries can be enumerated.");
 
 # tests done
 done_testing();
