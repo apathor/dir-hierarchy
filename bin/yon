@@ -1,0 +1,48 @@
+#!/usr/bin/env perl
+# junk test for Dir::Hierarchy;
+
+use v5.20;
+use strict;
+use warnings;
+
+use Regexp::Common qw/net URI/;
+use lib './lib/';
+use Dir::Hierarchy;
+
+$|++;
+
+my $dir = "/home/mike/tmp/sandbox/yonder";
+
+my $ipv4 = Dir::Hierarchy->new(
+  "$dir/ipv4",
+  sub { local $_ = shift; split /\./ if(/^$RE{net}{IPv4}$/); },
+  sub { local $_ = join '.', splice @_, 0, 4; $_ if(/^($RE{net}{IPv4}$)/); },
+ );
+
+my $fqdn = Dir::Hierarchy->new(
+  "$dir/fqdn",
+  sub { local $_ = shift; reverse split /\./ if(/^$RE{net}{domain}$/); },
+  sub { local $_ = join '.', reverse @_; $_ if(/^($RE{net}{domain}$)/); },
+ );
+
+my $cmd = shift @ARGV;
+
+if($cmd) {
+  say for $ipv4->all;
+  say for $fqdn->all;
+} else {
+  # load from stdin
+  while(<>) {
+    # ipv4
+    for (/\b($RE{net}{IPv4})\b/g) {
+      printf "%s %s\n", $_, $ipv4->path($_);
+      $ipv4->add($_);
+    }
+    # fqdn
+    for(/\b($RE{net}{domain})\b/g) {
+      next unless((scalar split ".") > 1);
+      printf "%s %s\n", $_, $fqdn->path($_);
+      $fqdn->add($_);
+    }
+  }
+}

@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use v5.10;
 
-use Test::More tests => 11;
+use Test::More; # tests => 13;
 use File::Temp qw/tempdir/;
 use File::Path qw/make_path remove_tree/;
 
@@ -33,6 +33,8 @@ ok($it eq "Dir::Hierarchy",
 ok($hier->root eq "$dir/fqdn",
    "$it has a root directory.");
 
+ok($hier->check("dirhier.test.thecompy.net"));
+
 ok($hier->to("that") eq "that",
    "$it maps a trivial ID to a path.");
 
@@ -47,6 +49,9 @@ ok($hier->from("net/this/www") eq "www.this.net",
 
 ok($hier->path("www.this.net") eq "$dir/fqdn/net/this/www",
    "$it generates a full path from an ID.");
+
+my @all = $hier->all();
+ok(@all);
 
 # entries
 my $new = $hier->add("bookmarks.thecompy.net");
