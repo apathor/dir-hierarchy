@@ -35,7 +35,7 @@ sub to {
   return unless($id);
   my @toks = $self->{to}->($id);
   return unless(@toks);
-  return File::Spec->catdir(@toks);
+  return File::Spec->catdir($self->root, @toks);
 }
 
 sub from {
@@ -51,17 +51,10 @@ sub check {
   return $id eq $self->from($self->to($id));
 }
 
-sub full {
-  my($self, $id) = @_;
-  my $path = $self->to($id);
-  return unless $path;
-  return path($self->root, $path);
-}
-
 sub get {
   my ($self, $id) = @_;
   return unless($id);
-  my $path = $self->full($id);
+  my $path = $self->to($id);
   return unless (-d $path);
   return path($path);
 }
@@ -69,22 +62,22 @@ sub get {
 sub add {
   my ($self, $id) = @_;
   return unless($id);
-  die unless $self->check($id);
-  my $path = $self->full($id);
-  return unless $path;
+  die unless($self->check($id));
+  my $path = $self->to($id);
+  return unless($path);
   die sprintf "Could not make path %s.\n", $path
-    unless (-d $path or make_path($path));
-  return $path;
+    unless(-d $path or make_path($path));
+  return path($path);
 }
 
 sub del {
   my ($self, $id) = @_;
   die "ID required" unless($id);
-  my $path = $self->full($id);
+  my $path = $self->to($id);
   return unless (-d $path);
   die sprintf "Could not remove path %s.\n", $path
     unless(remove_tree($path));
-  return $path;
+  return 1;
 }
 
 sub all {
