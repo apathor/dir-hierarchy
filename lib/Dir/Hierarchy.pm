@@ -1,9 +1,8 @@
 package Dir::Hierarchy;
-# ABSTRACT: Hoodles doops
+# ABSTRACT: Make directory trees with a mapping function.
 use strict;
 use warnings;
 
-use List::Util qw/first/;
 use File::Path qw/make_path remove_tree/;
 use File::Find;
 use File::Spec;
@@ -85,7 +84,7 @@ sub all {
   my %seen;
   my $grab = sub {
     my $name = $File::Find::name;
-    return unless(-d $name);
+    return unless(-d $name && $name ne $self->root);
     my $id = $self->from($name);
     return unless $id;
     $seen{$id}++;
