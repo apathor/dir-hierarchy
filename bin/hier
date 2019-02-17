@@ -1,0 +1,108 @@
+#!/usr/bin/env perl
+
+use v5.20;
+use strict;
+use warnings;
+
+use Dir::Hierarchy;
+
+use YAML;
+use Net::IP;
+use Pod::Usage;
+use Path::Tiny;
+use File::HomeDir;
+use Getopt::Long::Descriptive;
+use Regexp::Common qw/net URI/;
+
+# builtin hierarchies
+my %known = (
+  'ipv4' => {
+    desc => "IPv4 addresses.",
+    to   => sub {
+      my $x = lc shift;
+      return unless($x =~ /^$RE{net}{IPv4}$/);
+      my $n = Net::IP->new($x);
+      split /\./, $n->ip();
+    },
+    from => sub {
+      my $x = join '.', splice @_, 0, 4;
+      return $x if($x =~ /^($RE{net}{IPv4}$)/);
+    },
+  },
+  'ipv6' => {
+    desc => "IPv6 addresses.",
+    to   => sub {
+      my $x = lc shift;
+      return unless($x =~ /^$RE{net}{IPv6}$/);
+      my $n = Net::IP->new($x);
+      return split /:/, $n->ip();
+    },
+    from => sub {
+      my $x = join '.', splice @_, 0, 4;
+      return $x if($x =~ /^($RE{net}{IPv6}$)/);
+    },
+  },
+  'fqdn' => {
+    desc => "Fully qualified domain names.",
+    to   => sub {
+      my $x = lc shift;
+      return unless ($x =~ /^$RE{net}{domain}\.?$/);
+      return reverse split /\./, $x
+    },
+    from => sub {
+      my $x = join '.', reverse @_;
+      return $x if($x =~/^($RE{net}{domain}\.?$)/);
+    },
+  },
+);
+
+# accept options
+my ($opt, $use) = describe_options(
+  "hier - %o",
+  ["mode" => hidden => { one_of => [
+    ["list|L" => "list entries in given tree" ],
+    ["get|G" => "get directory for given ID"],
+    ["add|A" => "add directory for given ID"],
+    ["del|D" => "delete directory for given IP"],
+   ] } ],
+  ["conf|c" => "a configuration file"],
+  ["type|t=s" => "the type of hierarchy"],
+  ["help|h|H" => "just print usage text"],
+ );
+
+# help?
+say $use->text, exit if $opt->help;
+
+# load user file
+my $cfile = $opt->conf || File::HomeDir->my_home . "/.hierrc";
+my $conf = -f $cfile ? YAML::LoadFile($cfile) : undef;
+
+# accept arguments
+my ($dir) = shift;
+die "Directory argument required!" unless($dir && -d $dir);
+
+# figure type of hierarchy
+my $type = $opt->type || 'fqdn';
+die "Bad type!" unless($known{$type});
+
+# setup hierarchy
+my $hier = Dir::Hierarchy->new($dir, $known{$type}->{to}, $known{$type}->{from});
+die "What?" unless($hier);
+
+# mode switch
+my $mode = $opt->mode || 'list';
+if ($mode eq "list") {
+  say for $hier->all;
+} elsif ($mode eq "get") {
+  my $got = $hier->get(shift);
+  die "Not found\n" unless($got);
+  say $got;
+} elsif ($mode eq "add") {
+  my $this = shift || die "ID argument required.";
+  my $got = $hier->add($this);
+  say $got;
+} elsif ($mode eq "del") {
+  my $this = shift || die "ID argument required.";
+  my $got = $hier->del($this);
+  say $got;
+}

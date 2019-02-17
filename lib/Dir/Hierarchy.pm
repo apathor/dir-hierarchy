@@ -83,14 +83,29 @@ sub all {
   my ($self) = @_;
   my %seen;
   my $grab = sub {
-    my $name = $File::Find::name;
-    return unless(-d $name && $name ne $self->root);
-    my $id = $self->from($name);
+    return unless(-d && $_ ne $self->root);
+    my $id = $self->from($_);
     return unless $id;
     $seen{$id}++;
   };
-  find($grab, $self->root);
+  find({ wanted => $grab, no_chdir => 1}, $self->root);
   return keys %seen;
 }
 
 1;
+
+=pod
+
+=head1 NAME
+
+Dir::Hierarchy
+
+=head1 SYNOPSIS
+
+
+
+=head1 DESCRIPTION
+
+Dir::Hierarchy is a tool for maintaining functionally defined directory trees.
+
+=cut
